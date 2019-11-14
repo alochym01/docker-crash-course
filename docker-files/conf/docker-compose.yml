@@ -1,0 +1,70 @@
+# As you can see, from the first few lines, Docker Compose did the following:
+# It created a volume called mobycounter_redis_data, using the default driver
+# as we defined at the end of the docker-compose.yml file.
+# It created a network called mobycounter_default using the default network
+# driver – at no point did we ask Docker Compose to do this. More on this in a minute.
+# It launched two containers, one called mobycounter_redis_1 , and the second
+# called mobycounter_mobycounter_1.
+version: "3"
+services:
+  redis: # container name
+    image: redis:alpine # container image
+    volumes: # container option
+      # mounting the redis_data folder from our host machine into the container
+      - redis_data:/data # container option
+    restart: always # container option
+    ports: ["6379"]
+    networks:
+      - back-tier
+  db:
+    image: postgres:9.4
+    container_name: db
+    volumes:
+      - "db-data:/var/lib/postgresql/data"
+    networks:
+      - back-tier
+  mobycounter:
+    depends_on: # only launch container B when container A has successfully started
+      - redis
+    image: russmckendrick/moby-counter
+    ports:
+      - "8080:80" # This is basically the --publish flag, which accepts a list of ports
+    restart: always # This is the same as using the --restart flag
+  vote:
+    #  to build a container using the Dockerfile, which can be found in the ./vote folder
+    build: ./vote # building an image from scratch by using build instead of the image command
+    command: python app.py # telling the container to run the python app.py when it launches
+    volumes:
+      - ./vote:/app # mounting the ./vote folder from our host machine into the container
+    ports:
+      - "5000:80" # mapping port 5000 on our host machine to port 80 on the container
+    networks:
+      # attaching two networks to the container
+      # one called front-tier
+      # second called back-tier
+      - front-tier
+      - back-tier
+  result:
+    build: ./result
+    command: nodemon server.js
+    volumes:
+      - ./result:/app
+    ports:
+      - "5001:80"
+      - "5858:5858"
+    networks:
+      - front-tier
+      - back-tier
+  worker:
+    build:
+    context: ./worker
+    depends_on:
+      - "redis"
+    networks:
+      - back-tier
+volumes:
+  redis_data:
+  db-data:
+networks:
+  front-tier:
+  back-tier:

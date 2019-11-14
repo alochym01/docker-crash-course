@@ -1,0 +1,50 @@
+# if we wanted to compile our own software as part of the build
+
+# The FROM instruction tells Docker which base you would like to use for your image
+FROM golang:latest as builder
+
+# who is maintaining it
+LABEL maintainer="Do Nguyen Ha <alochym@gmail.com>"
+
+# a brief description of what the image
+LABEL description="This example Dockerfile installs NGINX."
+
+# TODO
+# ONBUILD
+
+# The ENV instruction sets environment variables within the image both when it is built and
+# when it is executed. These variables can be overridden when you launch your image.
+# ENV username=admin database=wordpress tableprefix=wp
+
+# sets the user name (or UID) and optionally the user group (or GID)
+# to use when running the image and for any RUN, CMD and ENTRYPOINT
+# USER nginx:nginx
+
+# sets the working directory for any RUN, CMD, ENTRYPOINT, COPY and ADD
+# If the WORKDIR doesn’t exist, it will be created
+WORKDIR /go-http-hello-world/
+
+# The RUN instruction is where we interact with our image
+# - executes command(s) in a new layer and creates a new image
+# - install software
+# - run scripts, commands, and other tasks.
+# Installs nginx using Alpine Linux's package manager
+RUN go get -d -v golang.org/x/net/html
+
+# ADD works as same as COPY, but it also supports 2 other sources.
+# - First, you can use a URL instead of a local file / directory.
+# - Secondly, automatically extracts a tar file from the source directly into the destination.
+ADD https://raw.githubusercontent.com/geetarista/go-http-hello-world/master/hello_world/hello_world.go ./hello_world.go
+
+# compile go hello_world file
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app .
+
+# Alpine Linux is a small,
+# the default image base for the official container images
+FROM alpine:latest
+
+# Coping /go-http-hello-world/app from step 1 to this image
+COPY --from=builder /go-http-hello-world/app .
+
+# Start app
+ENTRYPOINT ["./app"]
